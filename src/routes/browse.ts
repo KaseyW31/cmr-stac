@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import { stringify as stringifyQuery } from "qs";
+import axios from "axios";
 
 import { Links } from "../@types/StacCatalog";
 
@@ -52,12 +53,19 @@ const collectionLinks = (req: Request, nextCursor?: string | null): Links => {
 export const collectionsHandler = async (req: Request, res: Response): Promise<void> => {
   const { headers } = req;
   req.params.searchType = "collection";
-  const query = await buildQuery(req);
+  const initialQuery = await buildQuery(req);
+  const cloudOnly = req.headers["cloud-stac"] === "true" ? { cloudHosted: true } : {};
+  const query = {
+    ...initialQuery,
+    ...cloudOnly
+  }
 
   // If the query contains a "provider": "ALL" clause, we need to remove it as
   // this is a 'special' provider that means 'all providers'. The absence
   // of a provider clause gives the right query.
-  if ("provider" in query && query.provider == ALL_PROVIDER) delete query.provider;
+  if ("provider" in query && query.provider == ALL_PROVIDER) {
+    delete query.provider;
+  }
 
   const { cursor, items: collections } = await getCollections(query, {
     headers,
@@ -95,20 +103,35 @@ export const collectionHandler = async (req: Request, res: Response): Promise<vo
     collection,
     params: { collectionId, providerId },
   } = req;
-
+  
   if (!collection) {
     throw new ItemNotFound(
       `Could not find collection [${collectionId}] in provider [${providerId}]`
     );
   }
 
+  let cloudHosted;
+  const cloudOnly = req.headers["cloud-stac"] === "true";
+
+  if (cloudOnly) {
+    const jsonMetadataLink = collection?.links.find((link) => link.title === "CMR JSON metadata for collection");
+    if (jsonMetadataLink) {
+      const response = await axios.get(`${jsonMetadataLink.href}`);
+      cloudHosted = response?.data?.cloud_hosted;
+    };
+  };
+  if (cloudOnly && !cloudHosted) {
+    throw new ItemNotFound(
+      `Could not find cloudhosted collection [${collectionId}]`);
+  }
+  
   collection.links = collection.links
     ? [...collectionLinks(req), ...(collection.links ?? [])]
     : [...collectionLinks(req)];
   const { path } = stacContext(req);
   addItemLinkIfNotPresent(collection, path);
   res.json(collection);
-};
+}
 
 /**
  * Marshall the description, links and collections into a valid response

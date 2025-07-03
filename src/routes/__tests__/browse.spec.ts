@@ -88,7 +88,7 @@ describe("addItemLinkIfNotPresent", () => {
   });
 });
 
-describe("generateBaseUrlForCollection", () => {
+describe("generateBaseUrlForCollection (stac)", () => {
   it("will use the provider name for an ALL collection result", async () => {
     let stacCollection = generateSTACCollections(1)[0];
 
@@ -109,7 +109,28 @@ describe("generateBaseUrlForCollection", () => {
   });
 });
 
-describe("generateCollectionResponse", () => {
+describe("generateBaseUrlForCollection (cloudstac)", () => {
+  it("will use the provider name for an ALL collection result", async () => {
+    let stacCollection = generateSTACCollections(1)[0];
+
+    const baseUrl = generateBaseUrlForCollection(
+      "http://localhost:3000/cloudstac/ALL/collections/Test%201_1.2",
+      stacCollection
+    );
+    expect(baseUrl).to.equal("http://localhost:3000/cloudstac/PROV1/collections/Test%201_1.2");
+  });
+  it("will use the same provider name for any other collection result", async () => {
+    let stacCollection = generateSTACCollections(1)[0];
+
+    const baseUrl = generateBaseUrlForCollection(
+      "http://localhost:3000/cloudstac/PROV1/collections/Test%201_1.2",
+      stacCollection
+    );
+    expect(baseUrl).to.equal("http://localhost:3000/cloudstac/PROV1/collections/Test%201_1.2");
+  });
+});
+
+describe("generateCollectionResponse (stac)", () => {
   it("will add the correct description if the provider is 'ALL'", async () => {
     let stacCollections = generateSTACCollections(1);
     const baseUrl = "http://localhost:3000/stac/ALL/collections";
@@ -119,6 +140,21 @@ describe("generateCollectionResponse", () => {
   it("will add the correct description if the provider is a real provider", async () => {
     let stacCollections = generateSTACCollections(1);
     const baseUrl = "http://localhost:3000/stac/PROV1/collections";
+    const collectionsResponse = generateCollectionResponse(baseUrl, [], stacCollections);
+    expect(collectionsResponse.description).to.equal("All collections provided by PROV1");
+  });
+});
+
+describe("generateCollectionResponse (cloudstac)", () => {
+  it("will add the correct description if the provider is 'ALL'", async () => {
+    let stacCollections = generateSTACCollections(1);
+    const baseUrl = "http://localhost:3000/cloudstac/ALL/collections";
+    const collectionsResponse = generateCollectionResponse(baseUrl, [], stacCollections);
+    expect(collectionsResponse.description).to.equal("All collections provided by CMR");
+  });
+  it("will add the correct description if the provider is a real provider", async () => {
+    let stacCollections = generateSTACCollections(1);
+    const baseUrl = "http://localhost:3000/cloudstac/PROV1/collections";
     const collectionsResponse = generateCollectionResponse(baseUrl, [], stacCollections);
     expect(collectionsResponse.description).to.equal("All collections provided by PROV1");
   });
